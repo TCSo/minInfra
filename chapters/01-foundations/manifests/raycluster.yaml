@@ -1,0 +1,40 @@
+apiVersion: ray.io/v1
+kind: RayCluster
+metadata:
+  name: mini
+spec:
+  rayVersion: "2.58.0"
+  headGroupSpec:
+    rayStartParams:
+      dashboard-host: "0.0.0.0"
+      num-cpus: "0"
+    template:
+      spec:
+        containers:
+          - name: ray-head
+            image: rayproject/ray:2.58.0-py312
+            resources:
+              requests:
+                cpu: "1"
+                memory: 4Gi
+              limits:
+                cpu: "1"
+                memory: 4Gi
+  workerGroupSpecs:
+    - groupName: workers
+      replicas: 3
+      minReplicas: 1
+      maxReplicas: 3
+      rayStartParams: {}
+      template:
+        spec:
+          containers:
+            - name: ray-worker
+              image: rayproject/ray:2.58.0-py312
+              resources:
+                requests:
+                  cpu: "1"
+                  memory: 1Gi
+                limits:
+                  cpu: "1"
+                  memory: 1Gi
