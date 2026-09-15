@@ -22,17 +22,29 @@ on one GPU. More model support and guides incoming.
 | 1 | Foundations: Docker, Kubernetes, kubectl, Ray | A local multi-node cluster and the vocabulary to talk about it | 3 Ready nodes, a curl response | yes |
 | 2 | LLMs on infrastructure | A mental model of memory, KV cache, prefill/decode, and why placement is hard | Model size vs memory, worked out by hand | yes |
 | 3 | Serving with vLLM (and how it compares) | A model answering OpenAI-style requests, first on CPU | tokens/sec, single stream | yes |
-| 4 | Deploying a model on the cluster | Manifests, storage, health checks, a stable endpoint | Startup time to first token | yes |
-| 5 | Autoscaling | Replicas that follow load, scale-to-zero, the tradeoffs | Seconds from load spike to new replica serving | yes |
+| 4 | Deploying a model on the cluster | Manifests, storage, health checks, a rolling update with requests in flight | Startup time to first token | yes |
+| 5 | Autoscaling | Replicas that follow queue depth, not CPU; scale-to-zero and its cold-start cost | Seconds from load spike to new replica serving | yes |
 | 6 | Moving to a cloud GPU cluster | The same stack on rented GPUs, running Qwen3.8-27B | tokens/sec at 1 and 16 concurrent, $ per million tokens | yes |
-| 7 | Performance | Quantization, prefix caching, speculative decoding, routing | Before/after tokens/sec and $ per million tokens | later |
-| 8 | Connect your coding agent | OpenCode / Cline / Claude Code pointed at your endpoint | A completed task and its bill | yes |
+| 7 | Performance | Quantization, prefix caching, speculative decoding, prefix-aware routing across replicas | Before/after tokens/sec, TTFT with and without cache-aware routing | later |
+| 8 | Connect your coding agent | OpenCode / Cline / Claude Code pointed at your endpoint, recorded sessions as a replay benchmark | A completed task and its bill | yes |
 | 9 | Tuning the model on your own work | RL fine-tuning with Ray | Benchmark score before/after | later |
+| 10 | Ray Serve LLM | The chapter 6 model behind Ray Serve, same API, same benchmark | tokens/sec unchanged from chapter 6, startup time with Ray in the path | later |
+| 11 | GPU topology, tensor and pipeline parallelism | Two GPUs read with `nvidia-smi topo -m`; the model as TP=2, PP=2, and two replicas, placed with Ray bundling strategies | tokens/sec at 1 and 16 concurrent per layout, NVLink vs PCIe delta | later |
+| 12 | Prefill/decode disaggregation | One prefill and one decode replica with KV transfer over NIXL, prefix-affinity routing in front | TTFT and per-token latency under mixed load vs one replica on the same GPUs | later |
 
 Chapters 1 to 5 use a small model on CPU so the mechanics cost nothing; chapter 6
-swaps in the real model on rented GPUs with the same manifests.
+swaps in the real model on rented GPUs with the same manifests. Chapters 10 to 12
+need a node with two GPUs; their placement exercises run on the laptop cluster first.
 
-Chapters marked as placeholders are not written yet.
+Chapters marked "later" are not written yet.
+
+## What this guide does not cover
+
+- Cross-node tensor parallelism and cross-node KV transfer over RDMA. Chapters 11 and
+  12 stay on one node; the multi-node variants are described, not validated.
+- Serving many fine-tuned adapters per team (multi-LoRA).
+- The platform layer around the endpoint: authentication, per-team rate limits and
+  cost attribution, PII handling. Real, and out of scope for a curriculum.
 
 ## How to use this guide
 
