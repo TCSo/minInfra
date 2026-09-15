@@ -1,6 +1,6 @@
 """Single-stream latency benchmark against an OpenAI-compatible endpoint.
 
-    uv run python chapters/03-serving-with-vllm/bench.py --model Qwen/Qwen3-0.6B
+    uv run python chapters/03-serving-with-vllm/benchmark.py --model Qwen/Qwen3-0.6B
 """
 
 import argparse

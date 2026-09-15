@@ -59,6 +59,7 @@ Chapters marked "later" are not written yet.
 
 - macOS or Linux, Docker, and a terminal you are comfortable in.
 - No Kubernetes or ML background assumed.
+- The laptop chapters were tested on a 2021 M1 Mac with 16 GB RAM.
 
 ## License
 
