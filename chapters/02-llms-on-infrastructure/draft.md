@@ -162,7 +162,7 @@ Ceiling for Qwen3.8-27B, using the real checkpoint sizes from section 3 (a dash 
 
 Read the table twice. Down a column, faster memory means faster decode, and nothing else about the GPU matters for a single stream. Across a row, halving the bytes doubles the ceiling: quantization is a bandwidth trick as much as a memory trick. These are ceilings; a real engine reads the KV cache too, launches kernels, and samples, so chapter 6 will measure something below these numbers. The gap between the ceiling and the measurement is what chapter 7 is about.
 
-The same idea on your laptop: an M1 has 68 GB/s of memory bandwidth and the 0.6B model is 1.19 GB, so decode tops out around 57 tokens/s on this machine. Chapter 3 measures how close a CPU engine gets.
+The same idea on your laptop: an M1 Pro has about 200 GB/s of memory bandwidth and the 0.6B model is 1.19 GB, so decode tops out around 168 tokens/s on this machine, whatever engine runs it. Chapter 3 measures how close a CPU engine gets, and how close the Mac's GPU gets.
 
 Prefill has its own back-of-envelope. Each token costs about 2 floating-point operations per parameter (a multiply and an add), so a prompt of N tokens costs 2 × 27B × N. An H100 does about 990 TFLOPS of dense BF16. For a 10,000-token prompt:
 
@@ -224,7 +224,7 @@ Requests do not arrive in neat batches, and they finish at different times. Engi
 
 ## 7. Why GPUs, and which one
 
-Everything above was about bytes moved and operations done, and a GPU is the machine that does both faster: memory bandwidth in the terabytes per second against about 0.07 for a laptop and 0.2 to 0.5 for a server CPU, and dense matrix throughput in the hundreds of TFLOPS against single digits. The programming model matters less for serving than those two numbers. When you read a GPU spec sheet for this purpose, look at memory capacity (does it fit), memory bandwidth (decode speed), and dense BF16 or FP8 TFLOPS (prefill speed), in that order.
+Everything above was about bytes moved and operations done, and a GPU is the machine that does both faster: memory bandwidth in the terabytes per second against 0.1 to 0.4 for a laptop and 0.2 to 0.5 for a server CPU, and dense matrix throughput in the hundreds of TFLOPS against single digits. The programming model matters less for serving than those two numbers. When you read a GPU spec sheet for this purpose, look at memory capacity (does it fit), memory bandwidth (decode speed), and dense BF16 or FP8 TFLOPS (prefill speed), in that order.
 
 The fit table, using real checkpoint sizes and vLLM's 0.9 utilization. "Left" is what remains for KV cache, and the token count uses the 64 KB per token from section 5:
 
