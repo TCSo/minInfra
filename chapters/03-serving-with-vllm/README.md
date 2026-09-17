@@ -136,7 +136,7 @@ Send the first request again, without the thinking flag. The message now has the
 
 ## 5. Read the metrics
 
-vLLM exposes Prometheus metrics. These drive autoscaling in chapter 5.
+vLLM exposes Prometheus metrics. Chapter 5 uses them to watch the queue build under concurrent load, and chapter 6 autoscales on them.
 
 ```
 curl -s localhost:8000/metrics | grep -E '^vllm:(num_requests_running|prompt_tokens_total|generation_tokens_total)'
@@ -188,7 +188,7 @@ Ollama ignores `ignore_eos` and `chat_template_kwargs`, so its output tokens are
 
 Ollama decodes three times faster and prefills seven times faster (about 3,200 tokens/s). Its 114 tokens/s is two thirds of the 168 ceiling: on a GPU, decode gets close to bandwidth-bound, as chapter 2 said. Its runs also barely vary (113.3 to 114.2) while vLLM's spread from 23 to 40, because the GPU is not sharing cores with the rest of the laptop.
 
-The conclusion is not that vLLM is slow. On a laptop, llama.cpp reaches the hardware that matters. vLLM's CPU backend is a portability path for testing, which is what we use it for. Chapter 6 runs vLLM on the hardware it was built for.
+The conclusion is not that vLLM is slow. On a laptop, llama.cpp reaches the hardware that matters. vLLM's CPU backend is a portability path for testing, which is what we use it for. Chapter 5 runs vLLM on the hardware it was built for.
 
 ## Checkpoint
 

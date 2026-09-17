@@ -133,7 +133,7 @@ docker manifest inspect rayproject/ray:2.58.0-py312
 
 - `rayVersion` tells the operator which Ray it manages. Match it to the image tag.
 - `headGroupSpec` is the one head pod. It runs the global control store, the dashboard and the job server. `dashboard-host: 0.0.0.0` lets `port-forward` reach the dashboard. `num-cpus: "0"` keeps tasks off the head, the standard production setting.
-- `workerGroupSpecs` is a list so you can have differently shaped pools, for example CPU and GPU. `replicas` is what you want now. `minReplicas` and `maxReplicas` bound the Ray autoscaler, which is off until chapter 5.
+- `workerGroupSpecs` is a list so you can have differently shaped pools, for example CPU and GPU. `replicas` is what you want now. `minReplicas` and `maxReplicas` bound the Ray autoscaler, which is off until chapter 6.
 - `resources.requests` is what the scheduler uses to place a pod. `limits` is what the kernel enforces. Equal values give predictable behavior, and Ray sizes its worker pool from what it sees.
 
 ```
@@ -277,7 +277,7 @@ The job launches 40 tasks asking for 1 CPU each on a 3-CPU cluster, so the logs 
 (autoscaler +5s) No available node types can fulfill resource requests {'CPU': 1.0}*14. Add suitable node types to this cluster to resolve this issue.
 ```
 
-Nothing failed. Three tasks run at a time, the rest queue, and the job finishes in about 13 seconds. The autoscaler sees the pending demand and reports it cannot add nodes, because autoscaling is off and `maxReplicas` is reached. With autoscaling on, that log line becomes a request to KubeRay for more worker pods. On kind they would then stay Pending for lack of node capacity, which is where a cloud cluster autoscaler takes over. Chapter 5.
+Nothing failed. Three tasks run at a time, the rest queue, and the job finishes in about 13 seconds. The autoscaler sees the pending demand and reports it cannot add nodes, because autoscaling is off and `maxReplicas` is reached. With autoscaling on, that log line becomes a request to KubeRay for more worker pods. On kind they would then stay Pending for lack of node capacity, which is where a cloud cluster autoscaler takes over. Chapter 6.
 
 In the resources dump, `'CPU': 3.0` confirms the head contributes none, `memory` is the sum of pod requests, and `object_store_memory` is about 30 percent of worker memory, Ray's default reservation for shared objects.
 

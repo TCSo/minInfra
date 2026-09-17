@@ -23,7 +23,7 @@ Turn the chapter 3 `docker run` into a Kubernetes Deployment: weights from a vol
 
 ## 1. Create the cluster with the weights mounted
 
-A pod cannot see your laptop's disk. kind nodes are Docker containers, so `extraMounts` in `kind-config.yaml` bind-mounts a laptop directory into each worker node, and a `hostPath` volume in the pod then reaches it. This is the laptop stand-in for a PersistentVolume; chapter 6 swaps the volume block for a PVC.
+A pod cannot see your laptop's disk. kind nodes are Docker containers, so `extraMounts` in `kind-config.yaml` bind-mounts a laptop directory into each worker node, and a `hostPath` volume in the pod then reaches it. This is the laptop stand-in for a PersistentVolume; chapter 5 swaps the volume block for a PVC.
 
 Replace `$HOME` in both `hostPath` entries with your absolute home directory first, `/Users/you` on macOS or `/home/you` on Linux. kind does not expand variables, so a forgotten edit fails at cluster creation instead of mounting nothing. Both workers get the mount because the scheduler may place the pod on either, and a `hostPath` only works on a node that has the directory.
 
@@ -211,9 +211,9 @@ kubectl rollout restart deploy/whoami
 
 One dropped request even with a spare replica: pod deletion sends SIGTERM and removes the endpoint in parallel, and kube-proxy can route one more connection to a pod that is already gone. A `preStop` sleep of a few seconds closes that gap.
 
-What production adds to our manifest, none of which fits on this laptop: `RollingUpdate` with `maxSurge: 1, maxUnavailable: 0` so the old pod stays until the new one is Ready; the readiness probe, which is what the rollout waits on; a `preStop` sleep; and `terminationGracePeriodSeconds` long enough for in-flight generations to finish, minutes rather than the 30 s default. Chapter 6 runs this version, where the second pod has somewhere to go.
+What production adds to our manifest, none of which fits on this laptop: `RollingUpdate` with `maxSurge: 1, maxUnavailable: 0` so the old pod stays until the new one is Ready; the readiness probe, which is what the rollout waits on; a `preStop` sleep; and `terminationGracePeriodSeconds` long enough for in-flight generations to finish, minutes rather than the 30 s default. Chapter 5 runs this version, where the second pod has somewhere to go.
 
-`/health` says the engine is alive, not that it can produce output at an acceptable speed. A probe that generates one token catches a wedged engine, at the cost of a slot in every batch it runs in. Worth knowing, not worth the cost at one replica; it returns with the autoscaling signals in chapter 5.
+`/health` says the engine is alive, not that it can produce output at an acceptable speed. A probe that generates one token catches a wedged engine, at the cost of a slot in every batch it runs in. Worth knowing, not worth the cost at one replica; it returns with the autoscaling signals in chapter 6.
 
 Clean up the clients and whoami:
 
@@ -238,7 +238,7 @@ Keep it running if you are going straight to chapter 5, which starts from this D
 uv run python chapters/04-deploying-on-the-cluster/startup_time.py
 ```
 
-90 s from pod creation to first token on the test machine: about 40 s of torch.compile, 5 s of weights, and the rest three Python processes importing torch plus the profiling pass. Chapter 6 measures the same thing on a GPU with a 27B model, where the weights dominate.
+90 s from pod creation to first token on the test machine: about 40 s of torch.compile, 5 s of weights, and the rest three Python processes importing torch plus the profiling pass. Chapter 5 measures the same thing on a GPU with a 27B model, where the weights dominate.
 
 ## What to remember
 

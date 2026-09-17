@@ -96,7 +96,7 @@ Units for the rest of the guide: GB means 10^9 bytes, as Hugging Face shows. `nv
 
 ## 3. Applying it to Qwen3.8-27B
 
-The chapter 6 model. Its config is at https://huggingface.co/Qwen/Qwen3.8-27B/raw/main/config.json. Two differences from the 0.6B:
+The chapter 5 model. Its config is at https://huggingface.co/Qwen/Qwen3.8-27B/raw/main/config.json. Two differences from the 0.6B:
 
 - The text fields are nested under `text_config`, next to a `vision_config`. The architecture is `Qwen3_5ForConditionalGeneration`: it generates text conditioned on other inputs (images, video), where a text-only model is `ForCausalLM`. Qwen3.5 introduced the architecture; 3.6 and 3.8 are new weights on the same design, which is why an engine that runs one runs the next on release day.
 - Only 16 of its 64 layers are ordinary attention. The other 48 are a linear-attention variant with a fixed-size state. That does not change the weight math. It changes the KV cache math in section 5, in your favor.
@@ -124,7 +124,7 @@ $$
 \text{decode tokens/s} \le \frac{\text{memory bandwidth}}{\text{bytes of weights read per token}}
 $$
 
-The GPUs chapter 6 chooses between, with vendor bandwidth figures:
+The GPUs chapter 5 chooses between, with vendor bandwidth figures:
 
 | GPU | Memory | Bandwidth |
 | --- | --- | --- |
@@ -182,7 +182,7 @@ $$
 16 \cdot 2 \cdot 4 \cdot 256 \cdot 2 = 65536 \text{ bytes} = 64\text{ KB per token}
 $$
 
-A quarter of the dense cost. At the native 262,144-token context, one sequence needs 17 GB in BF16, or 8.6 GB with `--kv-cache-dtype fp8` in vLLM, which the model's own serving recipe recommends. The linear-attention state adds about 80 MB per sequence, small enough to ignore. In chapter 6, vLLM prints at startup how many KV tokens fit; compare that line to this arithmetic.
+A quarter of the dense cost. At the native 262,144-token context, one sequence needs 17 GB in BF16, or 8.6 GB with `--kv-cache-dtype fp8` in vLLM, which the model's own serving recipe recommends. The linear-attention state adds about 80 MB per sequence, small enough to ignore. In chapter 5, vLLM prints at startup how many KV tokens fit; compare that line to this arithmetic.
 
 The budget rule:
 
@@ -198,7 +198,7 @@ A decode step reads all the weights to produce one token. With two sequences in 
 
 So a GPU serving one user is mostly idle. Tokens per second per GPU goes up with concurrency and cost per token goes down the same way. This is the mechanical reason self-hosting wins with teams and agent swarms and not with one person.
 
-Requests arrive and finish at different times. Engines handle this with continuous batching: at every decode step the scheduler adds new sequences that fit the cache budget and drops finished ones. Prefill for a new request is slotted between decode steps, which is why one long prompt briefly slows everyone. Chapter 3 shows this in engine logs; chapter 6 measures tokens per second at 1 and 16 concurrent streams. That ratio decides whether a shared GPU pays for itself.
+Requests arrive and finish at different times. Engines handle this with continuous batching: at every decode step the scheduler adds new sequences that fit the cache budget and drops finished ones. Prefill for a new request is slotted between decode steps, which is why one long prompt briefly slows everyone. Chapter 3 shows this in engine logs; chapter 5 measures tokens per second at 1 and 16 concurrent streams. That ratio decides whether a shared GPU pays for itself.
 
 ## 7. Why GPUs, and which one
 
@@ -217,7 +217,7 @@ Fit table with real checkpoint sizes, 0.9 utilization, and 64 KB per token:
 - A 48 GB card holds FP8 with a workable cache. The cheapest configuration that serves the model as Qwen published it.
 - An 80 GB card holds BF16, but BF16 buys accuracy you probably cannot measure and costs half the cache and half the decode speed. FP8 on 80 GB is the comfortable option.
 
-Chapter 6 rents from this table and records the price on the day, next to measured tokens per second, for an honest dollars per million tokens.
+Chapter 5 rents from this table and records the price on the day, next to measured tokens per second, for an honest dollars per million tokens.
 
 ## 8. A GPU is a Kubernetes resource
 
@@ -246,7 +246,7 @@ Three rules that differ from cpu and memory:
 - Requests and limits must be equal, so write it under `limits` only.
 - No overcommit. A second GPU pod on a one-GPU node stays Pending with `Insufficient nvidia.com/gpu`.
 
-The container also needs CUDA libraries matching the host driver, which is why model-server images are large. Chapter 6 builds the GPU node, installs the plugin, and applies the chapter 4 manifests with this one block added.
+The container also needs CUDA libraries matching the host driver, which is why model-server images are large. Chapter 5 builds the GPU node, installs the plugin, and applies the chapter 4 manifests with this one block added.
 
 ## Checkpoint
 
