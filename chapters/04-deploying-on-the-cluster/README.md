@@ -8,12 +8,12 @@ Turn the chapter 3 `docker run` into a Kubernetes Deployment: weights from a vol
 
 ## Files
 
-| File | What it is |
-| --- | --- |
-| `kind-config.yaml` | The chapter 1 cluster plus a bind mount of your Hugging Face cache into both workers |
-| `manifests/vllm.yaml` | The vLLM Deployment and Service, before probes |
+| File                                | What it is                                                                                                |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `kind-config.yaml`                  | The chapter 1 cluster plus a bind mount of your Hugging Face cache into both workers                      |
+| `manifests/vllm.yaml`               | The vLLM Deployment and Service, before probes                                                            |
 | `manifests/vllm-health-probes.yaml` | The same with the probes and strategy from section 6, the answer key and the starting point for chapter 5 |
-| `startup_time.py` | Prints seconds from pod creation to Ready, the chapter's number |
+| `startup_time.py`                   | Prints seconds from pod creation to Ready, the chapter's number                                           |
 
 ## Prerequisites
 
@@ -87,10 +87,10 @@ uv run python chapters/03-serving-with-vllm/benchmark.py --model Qwen/Qwen3-0.6B
 
 Medians of five, next to the chapter 3 Docker number:
 
-| where | prompt | ttft | decode |
-| --- | --- | --- | --- |
-| chapter 3, Docker | 44 | 158 ms | 36.9 tok/s |
-| cluster, port-forward | 44 | 174 ms | 32.4 tok/s |
+| where                 | prompt | ttft   | decode     |
+| --------------------- | ------ | ------ | ---------- |
+| chapter 3, Docker     | 44     | 158 ms | 36.9 tok/s |
+| cluster, port-forward | 44     | 174 ms | 32.4 tok/s |
 
 About 10 percent for the cluster. If you see much worse, the laptop is swapping, not the cluster (appendix C).
 
@@ -104,11 +104,11 @@ kubectl exec deploy/vllm -- sh -c 'cat /sys/fs/cgroup/memory.current /sys/fs/cgr
 
 With the chapter 3 settings (2 GiB KV cache, no effective limit), in GiB:
 
-| moment | current | anon | file |
-| --- | --- | --- | --- |
-| mid-startup, before KV cache | 5.87 | 4.16 | 1.64 |
-| after benchmark | 6.66 | 5.94 | 0.68 |
-| peak | 7.23 | | |
+| moment                       | current | anon | file |
+| ---------------------------- | ------- | ---- | ---- |
+| mid-startup, before KV cache | 5.87    | 4.16 | 1.64 |
+| after benchmark              | 6.66    | 5.94 | 0.68 |
+| peak                         | 7.23    |      |      |
 
 `anon` is process memory: 1.4 GiB of weights, the KV cache, and about 2.5 GiB of torch runtime across vLLM's three processes. `file` is page cache, the weights file and the compile cache, charged to the cgroup that touched it but reclaimable. The kill line is `anon`, not `current`. With the 1 GiB cache and the 7Gi limit, anon settles at 4.9 GiB and `current` sits right under the limit: the kernel fills the cgroup with page cache up to the limit by design. "Memory at the limit" is not an OOM warning; `oom_kill 0` in `memory.events` is the check.
 
@@ -211,7 +211,7 @@ kubectl rollout restart deploy/whoami
 
 One dropped request even with a spare replica: pod deletion sends SIGTERM and removes the endpoint in parallel, and kube-proxy can route one more connection to a pod that is already gone. A `preStop` sleep of a few seconds closes that gap.
 
-What production adds to our manifest, none of which fits on this laptop: `RollingUpdate` with `maxSurge: 1, maxUnavailable: 0` so the old pod stays until the new one is Ready; the readiness probe, which is what the rollout waits on; a `preStop` sleep; and `terminationGracePeriodSeconds` long enough for in-flight generations to finish, minutes rather than the 30 s default. Chapter 5 runs this version, where the second pod has somewhere to go.
+What production adds to our manifest, none of which fits on this laptop: `RollingUpdate` with `maxSurge: 1, maxUnavailable: 0` so the old pod stays until the new one is Ready; the readiness probe, which is what the rollout waits on; a `preStop` sleep; and `terminationGracePeriodSeconds` long enough for in-flight generations to finish, minutes rather than the 30 s default. Chapter 6 runs this version, where the second pod has somewhere to go.
 
 `/health` says the engine is alive, not that it can produce output at an acceptable speed. A probe that generates one token catches a wedged engine, at the cost of a slot in every batch it runs in. Worth knowing, not worth the cost at one replica; it returns with the autoscaling signals in chapter 6.
 
