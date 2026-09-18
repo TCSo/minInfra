@@ -132,6 +132,7 @@ The GPUs chapter 5 chooses between, with vendor bandwidth figures:
 | L40S | 48 GB | 0.86 TB/s |
 | A100 80GB | 80 GB | 2.04 TB/s |
 | H100 SXM | 80 GB | 3.35 TB/s |
+| RTX PRO 6000 | 96 GB | 1.6 TB/s |
 
 Ceilings for Qwen3.8-27B using the real checkpoint sizes. A dash means the weights do not fit; section 7 has the fit.
 
@@ -141,6 +142,7 @@ Ceilings for Qwen3.8-27B using the real checkpoint sizes. A dash means the weigh
 | L40S | - | 28 tok/s | 37 tok/s |
 | A100 80GB | 37 tok/s | 66 tok/s | 87 tok/s |
 | H100 SXM | 60 tok/s | 108 tok/s | 143 tok/s |
+| RTX PRO 6000 | 29 tok/s | 52 tok/s | 68 tok/s |
 
 Down a column, faster memory means faster decode. Across a row, halving the bytes doubles the ceiling: quantization is a bandwidth trick as much as a memory trick. Real engines land below these numbers; the gap is chapter 7.
 
@@ -212,6 +214,7 @@ Fit table with real checkpoint sizes, 0.9 utilization, and 64 KB per token:
 | L40S | 43.2 GB | no | 12.3 GB, 190k | 19.8 GB, 300k |
 | A100 80GB | 72 GB | 16.4 GB, 250k | 41.1 GB, 630k | 48.6 GB, 740k |
 | H100 SXM | 72 GB | 16.4 GB, 250k | 41.1 GB, 630k | 48.6 GB, 740k |
+| RTX PRO 6000 | 86.4 GB | 30.8 GB, 470k | 55.5 GB, 850k | 63.0 GB, 960k |
 
 - A single consumer GPU holds this model only at 4 bits, with a thin cache. Qwen's own vLLM recipe agrees: one RTX 5090, NVFP4, FP8 KV cache, CUDA graphs off. It works, it is not comfortable.
 - A 48 GB card holds FP8 with a workable cache. The cheapest configuration that serves the model as Qwen published it.

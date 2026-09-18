@@ -10,7 +10,7 @@ Serve Qwen3-0.6B with vLLM on your laptop, talk to it through the OpenAI API, an
 
 | File | What it is |
 | --- | --- |
-| `benchmark.py` | Single-stream TTFT and decode benchmark against any OpenAI-compatible endpoint. Reused in every later chapter. |
+| `benchmark.py` | TTFT and decode benchmark against any OpenAI-compatible endpoint, single stream here, N concurrent streams from chapter 5. Reused in every later chapter. |
 
 ## Prerequisites
 
