@@ -1,0 +1,20 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: mininfra
+  region: us-west-2
+
+availabilityZones: [us-west-2a, us-west-2b, us-west-2c, us-west-2d]
+
+managedNodeGroups:
+  - name: gpu
+    instanceType: g5.2xlarge
+    amiFamily: AmazonLinux2023
+    minSize: 0
+    maxSize: 1
+    desiredCapacity: 1
+    volumeSize: 100
+    volumeType: gp3
+    volumeIOPS: 4000
+    volumeThroughput: 1000

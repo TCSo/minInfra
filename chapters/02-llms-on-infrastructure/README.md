@@ -4,7 +4,7 @@ Chapter 1 ended with "a model server is just a Deployment with a big image and a
 
 **You will have:** a way to take any open model and say what it weighs at each precision, what each open request costs in memory, how fast one GPU can possibly serve it, and which GPU to rent.
 
-**You will measure:** model size against memory, worked out by hand for Qwen3-0.6B and checked by script for Qwen3.8-27B.
+**You will measure:** model size against memory, worked out by hand for Qwen3-0.6B and checked by script for Qwen3.8-27B, Qwen3-8B and Qwen3-32B.
 
 ## Files
 
@@ -96,7 +96,7 @@ Units for the rest of the guide: GB means 10^9 bytes, as Hugging Face shows. `nv
 
 ## 3. Applying it to Qwen3.8-27B
 
-The chapter 5 model. Its config is at https://huggingface.co/Qwen/Qwen3.8-27B/raw/main/config.json. Two differences from the 0.6B:
+The course's headline model: the one to rerun every cloud chapter on when a 48 GB or larger card is available. Its config is at https://huggingface.co/Qwen/Qwen3.8-27B/raw/main/config.json. Two differences from the 0.6B:
 
 - The text fields are nested under `text_config`, next to a `vision_config`. The architecture is `Qwen3_5ForConditionalGeneration`: it generates text conditioned on other inputs (images, video), where a text-only model is `ForCausalLM`. Qwen3.5 introduced the architecture; 3.6 and 3.8 are new weights on the same design, which is why an engine that runs one runs the next on release day.
 - Only 16 of its 64 layers are ordinary attention. The other 48 are a linear-attention variant with a fixed-size state. That does not change the weight math. It changes the KV cache math in section 5, in your favor.
@@ -110,6 +110,17 @@ Counting this model by hand means learning Gated DeltaNet and the vision tower, 
 | NVFP4 | 13.5 GB | 23.4 GB (`unsloth/Qwen3.8-27B-NVFP4`) |
 
 Same shape as before: exact at BF16, loose at 4 bits, where the linear-attention layers, embeddings and output head stay in higher precision. The BF16 file also carries a vision tower and a multi-token-prediction draft head (used for speculative decoding in chapter 7), about 0.9B parameters a text-only server does not load. Always ask what the engine actually loads.
+
+### The two models the cloud chapters run
+
+The cloud chapters run on a 24 GB card, the one every cloud keeps in stock, so they use two Qwen3 models sized around it. Same architecture family as the 0.6B, so the hand count from section 2 applies, with the official FP8 checkpoints:
+
+| Model | Layers | KV heads × head dim | BF16 checkpoint | FP8 checkpoint | Role |
+| --- | --- | --- | --- | --- | --- |
+| Qwen3-8B | 36 | 8 × 128 | 16.4 GB | 9.4 GB (`Qwen/Qwen3-8B-FP8`) | chapters 5 to 9, fits one 24 GB card |
+| Qwen3-32B | 64 | 8 × 128 | 65.5 GB | 34.3 GB (`Qwen/Qwen3-32B-FP8`) | chapters 10 and 11, does not fit one, fits two |
+
+The sections below work the 27B first, then give the same table for these two.
 
 ## 4. Prefill and decode
 
@@ -128,6 +139,7 @@ The GPUs chapter 5 chooses between, with vendor bandwidth figures:
 
 | GPU | Memory | Bandwidth |
 | --- | --- | --- |
+| A10G | 24 GB | 0.60 TB/s |
 | RTX 5090 | 32 GB | 1.79 TB/s |
 | L40S | 48 GB | 0.86 TB/s |
 | A100 80GB | 80 GB | 2.04 TB/s |
@@ -138,6 +150,7 @@ Ceilings for Qwen3.8-27B using the real checkpoint sizes. A dash means the weigh
 
 | GPU | BF16 (55.6 GB) | FP8 (30.9 GB) | NVFP4 (23.4 GB) |
 | --- | --- | --- | --- |
+| A10G | - | - | - |
 | RTX 5090 | - | - | 77 tok/s |
 | L40S | - | 28 tok/s | 37 tok/s |
 | A100 80GB | 37 tok/s | 66 tok/s | 87 tok/s |
@@ -145,6 +158,17 @@ Ceilings for Qwen3.8-27B using the real checkpoint sizes. A dash means the weigh
 | RTX PRO 6000 | 29 tok/s | 52 tok/s | 68 tok/s |
 
 Down a column, faster memory means faster decode. Across a row, halving the bytes doubles the ceiling: quantization is a bandwidth trick as much as a memory trick. Real engines land below these numbers; the gap is chapter 7.
+
+The same arithmetic for the two cloud-chapter models at FP8. The 32B column on the A10G is the chapter 10 problem: it does not fit one card, and two cards over a network are not two cards' worth of bandwidth.
+
+| GPU | Qwen3-8B FP8 (9.4 GB) | Qwen3-32B FP8 (34.3 GB) |
+| --- | --- | --- |
+| A10G | 64 tok/s | does not fit |
+| L40S | 91 tok/s | 25 tok/s |
+| RTX PRO 6000 | 170 tok/s | 47 tok/s |
+| H100 SXM | 355 tok/s | 98 tok/s |
+
+Chapter 5 measures the 8B on an A10G against that 64 tok/s.
 
 On the laptop: an M1 Pro has about 200 GB/s and the 0.6B model is 1.19 GB, so decode tops out near 168 tokens/s whatever engine runs it. Chapter 3 measures how close a CPU engine and the Mac's GPU get.
 
@@ -184,7 +208,9 @@ $$
 16 \cdot 2 \cdot 4 \cdot 256 \cdot 2 = 65536 \text{ bytes} = 64\text{ KB per token}
 $$
 
-A quarter of the dense cost. At the native 262,144-token context, one sequence needs 17 GB in BF16, or 8.6 GB with `--kv-cache-dtype fp8` in vLLM, which the model's own serving recipe recommends. The linear-attention state adds about 80 MB per sequence, small enough to ignore. In chapter 5, vLLM prints at startup how many KV tokens fit; compare that line to this arithmetic.
+A quarter of the dense cost. At the native 262,144-token context, one sequence needs 17 GB in BF16, or 8.6 GB with `--kv-cache-dtype fp8` in vLLM, which the model's own serving recipe recommends. The linear-attention state adds about 80 MB per sequence, small enough to ignore.
+
+The two cloud-chapter models are all-attention, so the full formula applies: Qwen3-8B is 36 × 2 × 8 × 128 × 2 = 147 KB per token in BF16, Qwen3-32B is 64 × 2 × 8 × 128 × 2 = 262 KB. Both halve with `--kv-cache-dtype fp8`. In chapter 5, vLLM prints at startup how many KV tokens fit; compare that line to this arithmetic.
 
 The budget rule:
 
@@ -220,7 +246,19 @@ Fit table with real checkpoint sizes, 0.9 utilization, and 64 KB per token:
 - A 48 GB card holds FP8 with a workable cache. The cheapest configuration that serves the model as Qwen published it.
 - An 80 GB card holds BF16, but BF16 buys accuracy you probably cannot measure and costs half the cache and half the decode speed. FP8 on 80 GB is the comfortable option.
 
-Chapter 5 rents from this table and records the price on the day, next to measured tokens per second, for an honest dollars per million tokens.
+The same table for the cloud-chapter models, FP8 checkpoints, KV in BF16 bytes per token (halve the GB, double the tokens with `--kv-cache-dtype fp8`):
+
+| GPU | Usable (×0.9) | Qwen3-8B FP8 9.4 GB | Qwen3-32B FP8 34.3 GB |
+| --- | --- | --- | --- |
+| A10G | 21.6 GB | 12.2 GB, 82k | no |
+| two A10Gs, TP=2 or PP=2 | 43.2 GB | 33.8 GB, 229k | 8.9 GB, 34k |
+| L40S | 43.2 GB | 33.8 GB, 229k | 8.9 GB, 34k |
+| RTX PRO 6000 | 86.4 GB | 77.0 GB, 522k | 52.1 GB, 199k |
+| H100 SXM | 72 GB | 62.6 GB, 424k | 37.7 GB, 144k |
+
+The 8B on an A10G has 82,000 tokens of cache, nine times the laptop's 9,216 in chapter 5 and enough for the concurrency sweep there. The 32B across two A10Gs has 34,000, thin, which is why chapter 10 also measures it with the FP8 cache.
+
+Chapter 5 rents from these tables and records the price on the day, next to measured tokens per second, for an honest dollars per million tokens.
 
 ## 8. A GPU is a Kubernetes resource
 
@@ -249,7 +287,7 @@ Three rules that differ from cpu and memory:
 - Requests and limits must be equal, so write it under `limits` only.
 - No overcommit. A second GPU pod on a one-GPU node stays Pending with `Insufficient nvidia.com/gpu`.
 
-The container also needs CUDA libraries matching the host driver, which is why model-server images are large. Chapter 5 builds the GPU node, installs the plugin, and applies the chapter 4 manifests with this one block added.
+The container also needs CUDA libraries matching the host driver, which is why model-server images are large. Chapter 5 rents a GPU node whose image ships the driver and plugin, and applies the chapter 4 manifest with this one block added.
 
 ## Checkpoint
 
@@ -271,7 +309,7 @@ The lines that matter:
 The number is the BF16 weight size: about 54 GB. Run it on all three checkpoints and it prints the section 7 fit table with real file sizes:
 
 ```
-uv run python chapters/02-llms-on-infrastructure/model_memory.py Qwen/Qwen3.8-27B Qwen/Qwen3.8-27B-FP8 unsloth/Qwen3.8-27B-NVFP4
+uv run python chapters/02-llms-on-infrastructure/model_memory.py Qwen/Qwen3.8-27B Qwen/Qwen3.8-27B-FP8 unsloth/Qwen3.8-27B-NVFP4 Qwen/Qwen3-8B-FP8 Qwen/Qwen3-32B-FP8
 ```
 
 When a new model comes out, this script is how you redo the chapter in ten seconds.

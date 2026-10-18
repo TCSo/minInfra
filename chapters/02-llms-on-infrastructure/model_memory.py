@@ -18,10 +18,12 @@ import urllib.request
 HF = "https://huggingface.co"
 BYTES_PER_PARAM = {"BF16": 2, "FP8": 1, "INT4": 0.5}
 GPUS = [  # name, memory GB, bandwidth TB/s (vendor figures)
+    ("A10G", 24, 0.60),
     ("RTX 5090", 32, 1.79),
     ("L40S", 48, 0.86),
     ("A100 80GB", 80, 2.04),
     ("H100 SXM", 80, 3.35),
+    ("RTX PRO 6000", 96, 1.60),
 ]
 UTILIZATION = 0.9  # vLLM's default gpu_memory_utilization
 KV_BYTES = 2  # BF16 cache; halve for --kv-cache-dtype fp8
@@ -133,16 +135,16 @@ def report(repo):
     print()
 
     print(f"GPU fit using this checkpoint's real size and {UTILIZATION:.0%} utilization")
-    print(f"  {'GPU':10s} {'usable':>8s} {'left for KV':>12s} {'KV tokens':>10s} {'decode ceiling':>15s}")
+    print(f"  {'GPU':12s} {'usable':>8s} {'left for KV':>12s} {'KV tokens':>10s} {'decode ceiling':>15s}")
     for name, mem, bw in GPUS:
         usable = mem * UTILIZATION
         left = usable - file_gb
         if left <= 0:
-            print(f"  {name:10s} {usable:6.1f} GB {'does not fit':>12s}")
+            print(f"  {name:12s} {usable:6.1f} GB {'does not fit':>12s}")
             continue
         tokens = left * 1e9 / per_token
         ceiling = bw * 1e12 / (file_gb * 1e9)
-        print(f"  {name:10s} {usable:6.1f} GB {left:9.1f} GB {tokens/1e3:8.0f}k {ceiling:11.0f} tok/s")
+        print(f"  {name:12s} {usable:6.1f} GB {left:9.1f} GB {tokens/1e3:8.0f}k {ceiling:11.0f} tok/s")
     print()
 
 

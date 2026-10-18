@@ -23,7 +23,7 @@ Turn the chapter 3 `docker run` into a Kubernetes Deployment: weights from a vol
 
 ## 1. Create the cluster with the weights mounted
 
-A pod cannot see your laptop's disk. kind nodes are Docker containers, so `extraMounts` in `kind-config.yaml` bind-mounts a laptop directory into each worker node, and a `hostPath` volume in the pod then reaches it. This is the laptop stand-in for a PersistentVolume; chapter 5 swaps the volume block for a PVC.
+A pod cannot see your laptop's disk. kind nodes are Docker containers, so `extraMounts` in `kind-config.yaml` bind-mounts a laptop directory into each worker node, and a `hostPath` volume in the pod then reaches it. This is the laptop stand-in for a PersistentVolume. Chapter 5 keeps a `hostPath` on the cloud node's own disk, because the node is created and deleted with every session and the weights come from the network either way.
 
 Replace `$HOME` in both `hostPath` entries with your absolute home directory first, `/Users/you` on macOS or `/home/you` on Linux. kind does not expand variables, so a forgotten edit fails at cluster creation instead of mounting nothing. Both workers get the mount because the scheduler may place the pod on either, and a `hostPath` only works on a node that has the directory.
 
@@ -79,7 +79,7 @@ The endpoint is there and the curl is refused until vLLM listens. Section 6 fixe
 
 ## 4. Send requests and benchmark
 
-Once startup is complete, the same curl returns the model list, and the chapter 3 benchmark works unchanged through the port-forward:
+The refused curl also ended the port-forward with `error: lost connection to pod`. Once startup is complete, start it again; the same curl returns the model list, and the chapter 3 benchmark works unchanged through the port-forward:
 
 ```
 uv run python chapters/03-serving-with-vllm/benchmark.py --model Qwen/Qwen3-0.6B
@@ -238,7 +238,7 @@ Keep it running if you are going straight to chapter 5, which starts from this D
 uv run python chapters/04-deploying-on-the-cluster/startup_time.py
 ```
 
-90 s from pod creation to first token on the test machine: about 40 s of torch.compile, 5 s of weights, and the rest three Python processes importing torch plus the profiling pass. Chapter 5 measures the same thing on a GPU with a 27B model, where the weights dominate.
+90 s from pod creation to first token on the test machine: about 40 s of torch.compile, 5 s of weights, and the rest three Python processes importing torch plus the profiling pass. Chapter 5 measures the same thing on a GPU with an 8B model, where the download dominates.
 
 ## What to remember
 

@@ -28,7 +28,7 @@ A checkpoint on disk does nothing by itself. An engine loads the weights into de
 | TensorRT-LLM | NVIDIA only | Compiled engines, highest peak throughput, heavier to operate | Chapter 7 mention |
 | llama.cpp / Ollama | One user, any hardware | Runs quantized models on laptops including Metal, simplest setup | This chapter's comparison |
 
-We use vLLM because the target is a GPU cluster serving a team, the Kubernetes tooling later in the guide is built around it, Qwen's own serving recipe for the 27B is a vLLM command, and it integrates with Ray for the tuning chapters. Not because it is fastest on a laptop. This chapter shows it is not.
+We use vLLM because the target is a GPU cluster serving a team, the Kubernetes tooling later in the guide is built around it, Qwen's own serving recipe for the 27B is a vLLM command, and the RL tooling in chapter 9 uses it to generate rollouts. Not because it is fastest on a laptop. This chapter shows it is not.
 
 ## 1. Run vLLM in Docker
 

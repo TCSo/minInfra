@@ -1,10 +1,10 @@
 # Chapter 1: Foundations
 
-Docker, Kubernetes, kubectl, Helm and Ray, learned by building a three-node cluster on your laptop and running a distributed job on it.
+Docker, Kubernetes and kubectl, learned by building a three-node cluster on your laptop, putting a load-balanced Service on it, and filling it until the scheduler says no.
 
-**You will have:** a local Kubernetes cluster, a load-balanced Service, and a Ray cluster running a job across its workers.
+**You will have:** a local Kubernetes cluster, a load-balanced Service, and a pod the scheduler refused to place, with its reason.
 
-**You will measure:** 3 Ready nodes, a `curl` response, and how long a full rebuild from files takes (about 3 minutes).
+**You will measure:** 3 Ready nodes, a `curl` response, how many pods fit before the cluster is full (18), and how long a full rebuild from files takes (about 45 seconds).
 
 ## Files
 
@@ -12,8 +12,6 @@ Docker, Kubernetes, kubectl, Helm and Ray, learned by building a three-node clus
 | --- | --- |
 | `kind-config.yaml` | The cluster: one control plane, two workers |
 | `manifests/whoami.yaml` | A Deployment and Service that echo the pod hostname |
-| `manifests/raycluster.yaml` | A Ray head and worker pool, managed by KubeRay |
-| `jobs/where_am_i.py` | A Ray job that reports which workers ran its tasks |
 
 ## Prerequisites
 
@@ -24,15 +22,14 @@ Docker, Kubernetes, kubectl, Helm and Ray, learned by building a three-node clus
 ## 1. Install the tools
 
 ```
-brew install kind kubectl helm
+brew install kind kubectl
 curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 ```
 
 - kind runs Kubernetes nodes as Docker containers, so no cloud bill yet.
 - kubectl is the CLI to the cluster's API server.
-- Helm installs packaged, templated manifests (charts).
-- uv creates the Python environment and pins Ray to the version the cluster runs.
+- uv creates the Python environment the later chapters' scripts run in.
 
 Optional: reclaim Docker disk space first.
 
@@ -51,6 +48,7 @@ docker builder prune
 
 ```
 kind create cluster --config chapters/01-foundations/kind-config.yaml
+kubectl wait --for=condition=Ready nodes --all
 kubectl get nodes
 kubectl get pods -A
 docker ps
@@ -70,6 +68,7 @@ Expected: three nodes in `Ready`, and three `kindest/node` containers in `docker
 - `spec.replicas` is the desired pod count.
 - `spec.selector.matchLabels` says which pods belong to this Deployment: any pod labeled `app=whoami`.
 - `spec.template` is the pod blueprint. Its `labels` must match the selector.
+- `resources` is section 4.
 - The Service's `selector` routes traffic to pods with those labels. Pods come and go and change IPs; the Service keeps a stable IP and DNS name, and the control plane keeps an EndpointSlice of the pods currently behind it.
 
 Look up any field with `kubectl explain deployment.spec.template`.
@@ -101,124 +100,79 @@ kubectl logs curl
 kubectl delete pod curl
 ```
 
-## 4. Install the KubeRay operator
+## 4. Requests and the scheduler
 
-KubeRay is a Kubernetes operator: a pod that watches `RayCluster` objects and creates the pods they describe.
+Every whoami pod carries a `resources` block:
 
-![KubeRay in a Kubernetes cluster](./resources/kubeRayArchitecture.png)
+- `requests` is what the scheduler reserves on a node to place the pod. It is bookkeeping, not usage.
+- `limits` is what the kernel enforces once the pod runs. Going over the memory limit kills the container.
+- The CPU request here is deliberately large, one whole CPU for a server that uses almost none, so a few dozen replicas fill the cluster.
 
-```
-helm repo add kuberay https://ray-project.github.io/kuberay-helm/
-helm repo update
-helm search repo kuberay
-helm install kuberay kuberay/kuberay-operator --version 1.7.0
-kubectl get pods
-```
-
-`kuberay` is the Helm release name, used by `helm upgrade` and `helm uninstall`. The Deployment it creates is named `kuberay-operator`, because the chart hardcodes that. Inspect it with:
+Each worker reports what it can offer and what is already reserved:
 
 ```
-kubectl get deployment kuberay-operator -o yaml
+kubectl describe node kind-cluster-worker | grep -A 3 '^Allocatable'
+kubectl describe node kind-cluster-worker | grep -A 4 'Allocated resources'
 ```
 
-## 5. Deploy a Ray cluster
-
-Confirm the Ray image has a build for your architecture (arm64 on Apple Silicon):
-
 ```
-docker manifest inspect rayproject/ray:2.58.0-py312
+  cpu                1100m (11%)  0 (0%)
 ```
 
-`manifests/raycluster.yaml`, field by field:
-
-- `rayVersion` tells the operator which Ray it manages. Match it to the image tag.
-- `headGroupSpec` is the one head pod. It runs the global control store, the dashboard and the job server. `dashboard-host: 0.0.0.0` lets `port-forward` reach the dashboard. `num-cpus: "0"` keeps tasks off the head, the standard production setting.
-- `workerGroupSpecs` is a list so you can have differently shaped pools, for example CPU and GPU. `replicas` is what you want now. `minReplicas` and `maxReplicas` bound the Ray autoscaler, which is off until chapter 6.
-- `resources.requests` is what the scheduler uses to place a pod. `limits` is what the kernel enforces. Equal values give predictable behavior, and Ray sizes its worker pool from what it sees.
+10 allocatable CPUs, the Docker VM's cores. 1.1 reserved: one whoami pod and 100m for `kindnet`. Now ask for far more than fits:
 
 ```
-kubectl apply -f chapters/01-foundations/manifests/raycluster.yaml
-kubectl get raycluster
-kubectl describe raycluster mini
-kubectl get events --sort-by=.lastTimestamp
+kubectl scale deploy/whoami --replicas=24
+kubectl get pods -o wide
 ```
 
-Expected: `STATUS` is `ready` with 2 available workers. Then open the dashboard:
+18 pods run, 9 per worker, and 6 stay `Pending`. A tenth pod would bring a worker to 10.1 CPUs. The scheduler records why in the pod's `PodScheduled` condition:
 
 ```
-kubectl get svc
-kubectl port-forward svc/mini-head-svc 8265:8265
+kubectl get pod <pending-pod> -o jsonpath='{.status.conditions[?(@.type=="PodScheduled")].message}{"\n"}'
 ```
 
-At http://localhost:8265/#/cluster you should see one `mini-head-*` node and two `mini-workers-worker-*` nodes.
-
-![Ray dashboard showing one head and two workers](./resources/rayDashboard.png)
-
-## 6. Run a job
-
-`jobs/where_am_i.py` runs 40 tasks that each return their hostname, then prints the count per host and the cluster's resources.
-
 ```
-uv run ray job submit --address http://localhost:8265 --working-dir chapters/01-foundations/jobs -- python where_am_i.py
+0/3 nodes are available: 1 node(s) had untolerated taint(s), 2 Insufficient cpu. preemption: 0/3 nodes are available: 1 Preemption is not helpful for scheduling, 2 No preemption victims found for incoming pod.
 ```
 
-Expected: two hostnames in the counter, and the job listed under Jobs in the dashboard. The driver runs on the head pod; your laptop only uploads the directory and streams logs.
+One clause per node: the control plane is tainted so ordinary pods stay off it, and both workers are out of CPU. "Preemption" means evicting lower-priority pods to make room; every pod here has the same priority, so there is nothing to evict.
 
-The job went to port 8265 because that is the Jobs API. The head Service exposes several:
-
-| Port | Purpose |
-| --- | --- |
-| 6379 | Global Control Store |
-| 8265 | Dashboard and Jobs REST API |
-| 10001 | Ray Client gRPC |
-| 8080 | Prometheus metrics |
-| 8000 | Ray Serve HTTP ingress |
-
-![Ray architecture: head node with driver, GCS and autoscaler; worker nodes with raylet and worker processes](./resources/rayArchitecture.png)
-
-## 7. Scale the workers
-
-Change `replicas: 2` to `replicas: 3` in the worker group of `manifests/raycluster.yaml`, apply, and watch the new pod land on one of the two kind workers:
+The workers are not busy:
 
 ```
-kubectl apply -f chapters/01-foundations/manifests/raycluster.yaml
-kubectl get pods -o wide -w
+docker stats --no-stream | grep worker
 ```
 
-Submit the job again. Three hostnames now appear:
+Each node container uses a fraction of one core. The cluster is full of reservations, not work. That is the trade requests make: a pod that has been placed is guaranteed its CPU, at the price of idle capacity nobody else can use.
+
+Now delete a running pod:
 
 ```
-uv run ray job submit --address http://localhost:8265 --working-dir chapters/01-foundations/jobs -- python where_am_i.py
+kubectl delete pod <running-pod>
+kubectl get deploy whoami
+kubectl get pods --sort-by=.metadata.creationTimestamp
 ```
 
-Worker template changes are reconciled live. Head template changes are not; those need `kubectl delete -f` then `apply -f`.
+The Deployment still says 24. Its controller saw 23, created a replacement, and the freed CPU went to whichever pending pod the scheduler picked, often an older one; the new replacement is the one that waits. You declared 24 and the controller keeps making it true. Scale back:
 
-## 8. Rebuild from files and time it
+```
+kubectl scale deploy/whoami --replicas=2
+```
+
+## 5. Rebuild from files and time it
 
 Delete everything and recreate it from the checked-in files. Time it.
 
 ```
 kind delete cluster --name kind-cluster
 kind create cluster --config chapters/01-foundations/kind-config.yaml
+kubectl wait --for=condition=Ready nodes --all
 kubectl apply -f chapters/01-foundations/manifests/whoami.yaml
-helm install kuberay kuberay/kuberay-operator --version 1.7.0
-kubectl apply -f chapters/01-foundations/manifests/raycluster.yaml
-kubectl get pods -w
+kubectl rollout status deploy/whoami
 ```
 
-Once all pods are ready, in a second terminal:
-
-```
-kubectl port-forward svc/mini-head-svc 8265:8265
-```
-
-And in a third:
-
-```
-uv run ray job submit --address http://localhost:8265 --working-dir chapters/01-foundations/jobs -- python where_am_i.py
-```
-
-Reference: about 3 minutes on the test machine. Tear down when done:
+Then repeat the in-cluster `curl` from section 3. Reference: about 45 seconds on the test machine, with images already pulled. Tear down when done:
 
 ```
 kind delete cluster --name kind-cluster
@@ -230,74 +184,34 @@ kind delete cluster --name kind-cluster
 kubectl get nodes
 ```
 
-Three nodes `Ready`, `curl localhost:8080` through the port-forward returns a `Hostname`, and the Ray job prints one hostname per worker.
+Three nodes `Ready`, the in-cluster `curl` returns two different `Hostname`s, and a scaled-up whoami leaves pods `Pending` with `Insufficient cpu`.
 
 ## What to remember
 
-- Everything is declared desired state. A controller makes reality match it: the Deployment controller, the Service and EndpointSlice machinery, and the KubeRay operator all work this way.
+- Everything is declared desired state. A controller makes reality match it: delete a pod and the Deployment controller replaces it.
 - `kubectl port-forward` pins to one pod. Load balancing happens inside the cluster.
 - `kubectl explain <kind>.<path>` is the schema for the exact version you run.
-- A Helm release name and the resources it creates are different names.
-- A framework's control plane has a memory floor. Give the head room.
-- A submitted job's driver runs on the head. Your laptop only uploads and watches.
+- The scheduler places pods by `requests`, not by what they use. A full cluster can be an idle one.
+- The `PodScheduled` condition on a `Pending` pod says exactly why, one clause per node.
 - Cluster state survives a Docker restart. Port-forwards do not.
 - Delete and recreate from files is the test that the chapter is done.
 - A GPU is just another node resource the scheduler counts, and a model server is just a Deployment with a big image and a big memory request. Chapter 2 works out how big.
 
 ## Appendix
 
-### A. The head pod ran out of memory
+### A. What you built, and how it maps to production
 
-With a 2Gi head, the first job died immediately:
-
-```
-Status message: Unexpected error occurred: 1 worker(s) were killed due to the node running low on memory.
-Memory on the node (IP: 10.244.1.4) was 1.99GB / 2.00GB (0.997005)
-Selected to kill: (Task: ... task name=_ray_internal_job_actor_...:JobSupervisor.__init__, actual memory used=0.04GB)
-Top 10 memory users: PID  MEM(GB) COMMAND
-20    0.19  .../ray/gcs/gcs_server
-160   0.19  ray-dashboard-ServeHead-0
-72    0.18  python -m ray.util.client.server
-73    0.16  .../ray/dashboard/dashboard.py
-71    0.15  .../ray/autoscaler/...
-1     0.12  ray start --head --block
-```
-
-The killed actor used 0.04 GB. The head was full before any user code ran: GCS, dashboard modules, client server and autoscaler add up to roughly 1.4 GB, plus the object store and page cache, which the container's memory accounting also counts.
-
-- `limits.memory` is enforced hard, and Ray's own monitor kills at 95 percent of it.
-- Fix: head `memory: 4Gi` and `num-cpus: "0"`. The head is not rebuilt on a template change, so delete and re-apply the RayCluster. The port-forward dies with the old head pod.
-
-### B. "Infeasible resource requests" during the job
-
-The job launches 40 tasks asking for 1 CPU each on a 3-CPU cluster, so the logs say:
-
-```
-(raylet) There are tasks with infeasible resource requests that cannot be scheduled. ...
-(autoscaler +5s) No available node types can fulfill resource requests {'CPU': 1.0}*14. Add suitable node types to this cluster to resolve this issue.
-```
-
-Nothing failed. Three tasks run at a time, the rest queue, and the job finishes in about 13 seconds. The autoscaler sees the pending demand and reports it cannot add nodes, because autoscaling is off and `maxReplicas` is reached. With autoscaling on, that log line becomes a request to KubeRay for more worker pods. On kind they would then stay Pending for lack of node capacity, which is where a cloud cluster autoscaler takes over. Chapter 6.
-
-In the resources dump, `'CPU': 3.0` confirms the head contributes none, `memory` is the sum of pod requests, and `object_store_memory` is about 30 percent of worker memory, Ray's default reservation for shared objects.
-
-### C. Scaling back down
-
-Set worker `replicas` from 3 back to 2 and apply. The operator picks one worker pod and deletes it.
-
-### D. What you built, and how it maps to production
-
-Bottom to top: your Mac, Docker Desktop's Linux VM, three `kindest/node` containers acting as Kubernetes nodes, the Kubernetes system pods, your pods (whoami, kuberay-operator, Ray head, Ray workers), and a job inside the Ray workers.
+Bottom to top: your Mac, Docker Desktop's Linux VM, three `kindest/node` containers acting as Kubernetes nodes, the Kubernetes system pods, and your whoami pods.
 
 | Layer | What you have | What production has | Chapter |
 | --- | --- | --- | --- |
-| Machines | 3 Docker containers on one Mac | VMs or bare metal, some with GPUs | 6 |
-| Cluster | kind | EKS, GKE, AKS or self-managed | 6 |
-| Networking | port-forward | LoadBalancer, Ingress, an L7 router | 6, 7 |
+| Machines | 3 Docker containers on one Mac | VMs or bare metal, some with GPUs | 5 |
+| Cluster | kind | EKS, GKE, AKS or self-managed | 5 |
+| Networking | port-forward | LoadBalancer, Ingress, an L7 router | 7 |
 | Storage | local-path-provisioner | Persistent volumes, object storage for weights | 4 |
-| Workload | whoami, a Ray cluster running a toy job | vLLM serving Qwen3.8-27B | 3, 4 |
-| Scaling | you edit `replicas` | a metric edits it for you | 5 |
-| Observability | Ray dashboard, `kubectl get` | Prometheus, Grafana, alerts | 5 |
+| Workload | whoami | vLLM serving Qwen3-8B | 3, 4 |
+| Scaling | you edit `replicas` | a metric edits it for you, and a node autoscaler adds machines | 6 |
+| Observability | `kubectl get`, `describe`, events | Prometheus, Grafana, alerts | 5, 6 |
 | Access | you, on localhost | your coding agent, with auth | 8 |
 
 Every row on the left is the same Kubernetes object as the right. The rest of the guide swaps rows one at a time.
