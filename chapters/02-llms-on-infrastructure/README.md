@@ -226,7 +226,7 @@ A decode step reads all the weights to produce one token. With two sequences in 
 
 So a GPU serving one user is mostly idle. Tokens per second per GPU goes up with concurrency and cost per token goes down the same way. This is the mechanical reason self-hosting wins with teams and agent swarms and not with one person.
 
-Requests arrive and finish at different times. Engines handle this with continuous batching: at every decode step the scheduler adds new sequences that fit the cache budget and drops finished ones. Prefill for a new request is slotted between decode steps, which is why one long prompt briefly slows everyone. Chapter 3 shows this in engine logs; chapter 5 measures tokens per second at 1 and 16 concurrent streams. That ratio decides whether a shared GPU pays for itself.
+Requests arrive and finish at different times. Engines handle this with continuous batching: at every decode step the scheduler adds new sequences that fit the cache budget and drops finished ones. Prefill for a new request is slotted between decode steps, which is why one long prompt briefly slows everyone. Chapter 3 shows this in engine logs; chapter 5 measures tokens per second from 1 to 128 concurrent streams. That ratio decides whether a shared GPU pays for itself.
 
 ## 7. Why GPUs, and which one
 
@@ -256,7 +256,7 @@ The same table for the cloud-chapter models, FP8 checkpoints, KV in BF16 bytes p
 | RTX PRO 6000 | 86.4 GB | 77.0 GB, 522k | 52.1 GB, 199k |
 | H100 SXM | 72 GB | 62.6 GB, 424k | 37.7 GB, 144k |
 
-The 8B on an A10G has 82,000 tokens of cache, nine times the laptop's 9,216 in chapter 5 and enough for the concurrency sweep there. The 32B across two A10Gs has 34,000, thin, which is why chapter 10 also measures it with the FP8 cache.
+The 8B on an A10G has 82,000 tokens of cache, 164,000 with the FP8 cache. Chapter 5 measures 136,000: vLLM also reserves room for activations and CUDA graphs, which this table does not count. The 32B across two A10Gs has 34,000, thin, which is why chapter 10 also measures it with the FP8 cache.
 
 Chapter 5 rents from these tables and records the price on the day, next to measured tokens per second, for an honest dollars per million tokens.
 
@@ -287,7 +287,7 @@ Three rules that differ from cpu and memory:
 - Requests and limits must be equal, so write it under `limits` only.
 - No overcommit. A second GPU pod on a one-GPU node stays Pending with `Insufficient nvidia.com/gpu`.
 
-The container also needs CUDA libraries matching the host driver, which is why model-server images are large. Chapter 5 rents a GPU node whose image ships the driver and plugin, and applies the chapter 4 manifest with this one block added.
+The container also needs CUDA libraries matching the host driver, which is why model-server images are large. Chapter 5 rents a GPU node whose image ships the driver and plugin, and applies the chapter 4 manifest with this block added and the model swapped.
 
 ## Checkpoint
 

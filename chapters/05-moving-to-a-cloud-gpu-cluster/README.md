@@ -165,7 +165,7 @@ On paper the pick is Nebius's RTX PRO 6000, the most memory and bandwidth per do
 
 This course uses the card every cloud keeps in stock: AWS EKS and the g5.2xlarge, one A10G with 24 GB, $1.21 per hour on-demand in us-west-2. It holds the working model with about 136,000 tokens of FP8 KV cache against 9,216 in section 1 (section 5), and a 64 tok/s single-stream ceiling from chapter 2. The 27B needs the 48 GB L40S or the 96 GB RTX PRO 6000; the same config with `g6e.2xlarge` or `g7e.2xlarge` on the instance line is the headline rerun for the day they are in stock, and chapter 2's tables say what to expect from each.
 
-If you pick differently, the manifests still apply. Know before you start: GKE needs a GPU quota request that new accounts often lose, EKS bills the control plane every hour the cluster exists even at zero GPU nodes, and every provider's newest card is the one most likely to be out of stock. Two more facts for the day you rent. Never pin a GPU node group to one zone; give it every zone in the region and let the provider find capacity. And latency is not a reason to pick a region: a 50 ms round trip is paid once per request before the first token, and decode tokens per second never sees the network.
+If you pick differently, the manifests still apply. Know before you start: GKE needs a GPU quota request that new accounts often lose, EKS bills the control plane every hour the cluster exists even at zero GPU nodes, and every provider's newest card is the one most likely to be out of stock. Two more facts for the day you rent. Never pin a GPU node group to one zone; give it every zone that sells the card and let the provider find capacity. And latency is not a reason to pick a region: a 50 ms round trip is paid once per request before the first token, and decode tokens per second never sees the network.
 
 ## 4. Create the cluster
 
@@ -508,7 +508,7 @@ On-demand, g7e.2xlarge, the same night, thirteen attempts across all four zones 
 Could not launch On-Demand Instances. InsufficientInstanceCapacity - We currently do not have sufficient g7e.2xlarge capacity in the Availability Zone you requested (us-west-2a). Our system will be working on provisioning additional capacity. You can currently get g7e.2xlarge capacity by not specifying an Availability Zone in your request or choosing us-west-2b, us-west-2c, us-west-2d.
 ```
 
-A listed price is not a promise of a machine. The node group config in this chapter lists every zone, and the fallback is a one-line change of instance type to the card that is in stock.
+A listed price is not a promise of a machine. The node group config in this chapter lists every zone that sells the card, and the fallback is a one-line change of instance type to the card that is in stock.
 
 ### C. Server-side TTFT
 

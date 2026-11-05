@@ -238,7 +238,7 @@ Keep it running if you are going straight to chapter 5, which starts from this D
 uv run python chapters/04-deploying-on-the-cluster/startup_time.py
 ```
 
-90 s from pod creation to first token on the test machine: about 40 s of torch.compile, 5 s of weights, and the rest three Python processes importing torch plus the profiling pass. Chapter 5 measures the same thing on a GPU with an 8B model, where the download dominates.
+90 s from pod creation to first token on the test machine: about 40 s of torch.compile, 5 s of weights, and the rest three Python processes importing torch plus the profiling pass. Chapter 5 measures the same thing on a GPU with an 8B model, where the image pull dominates.
 
 ## What to remember
 

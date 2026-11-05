@@ -28,7 +28,7 @@ be rented; the manifests do not change, only the fit arithmetic in chapter 2.
 | 2   | LLMs on infrastructure                        | A mental model of memory, KV cache, prefill/decode, and why placement is hard                                                                             | Model size vs memory, worked out by hand                                                          | done   |
 | 3   | Serving with vLLM (and how it compares)       | A model answering OpenAI-style requests, first on CPU                                                                                                     | tokens/sec, single stream                                                                         | done   |
 | 4   | Deploying a model on the cluster              | Manifests, storage, health checks, a rolling update with requests in flight                                                                               | Startup time to first token                                                                       | done   |
-| 5   | Moving to a cloud GPU cluster                 | The laptop's ceiling under concurrent load, a priced comparison of four providers, and the same manifests running Qwen3-8B-FP8 on a rented GPU, torn down at the end | Seconds to write a program at 1 vs 8 concurrent; TTFT, TPOT, goodput and $ per million tokens across a concurrency sweep | next   |
+| 5   | Moving to a cloud GPU cluster                 | The laptop's ceiling under concurrent load, a priced comparison of four providers, and the same manifests running Qwen3-8B-FP8 on a rented GPU, torn down at the end | 39 s vs 110 s to write a program at 1 vs 8 users on the laptop; on an A10G, 290 s to Ready and $6.35 → $0.25 per million tokens from 1 to 32 users within the latency target | done   |
 | 6   | Autoscaling                                   | KEDA scaling vLLM replicas on the engine's own queue metric, Karpenter scaling the GPU node pool to zero, and what the endpoint costs while idle           | Seconds from load spike to new replica serving, idle $ per month                                  | next   |
 | 7   | Performance                                   | Quantization, prefix caching, speculative decoding, and prefix-aware routing through the Kubernetes Gateway API Inference Extension                        | Before/after tokens/sec, TTFT with and without cache-aware routing                                | later  |
 | 8   | Connect your coding agent                     | OpenCode / Cline / Claude Code pointed at your endpoint, recorded sessions as a replay benchmark                                                          | A completed task and its bill                                                                     | next   |
@@ -42,8 +42,8 @@ cluster at the start and deletes it at the end, so nothing bills between session
 The serving chapters use only Kubernetes primitives, vLLM, and the autoscaling and
 routing projects built on them. Ray enters in chapter 9 for training, where it is
 the standard tool.
-Chapters 10 and 11 use two single-GPU nodes, so they run under the same small quota
-as chapter 5.
+Chapters 10 and 11 use two single-GPU nodes, so they need a G-instance quota of 16
+vCPUs instead of chapter 5's 8.
 
 "next" chapters are being written in order.
 
