@@ -27,7 +27,7 @@ def pct(xs, p):
 
 
 def dollars_per_m(price_per_hour, tok_s):
-    return price_per_hour * 1e6 / (tok_s * 3600)
+    return price_per_hour * 1e6 / (tok_s * 3600) if tok_s else float("inf")
 
 
 def one_request(url, model, prompt, max_tokens):
