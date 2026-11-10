@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: vllm
+  template:
+    metadata:
+      labels:
+        app: vllm
+    spec:
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 180
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.29.0
+          args:
+            - Qwen/Qwen3-8B-FP8
+            - --max-model-len=32768
+            - --kv-cache-dtype=fp8
+            - --host=0.0.0.0
+            - --port=8000
+            - --reasoning-parser=qwen3
+          ports:
+            - containerPort: 8000
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - python3
+                  - -c
+                  - |
+                    import re, time, urllib.request
+                    busy = re.compile(r"^vllm:num_requests_(running|waiting)\{.*\} [1-9]", re.M)
+                    time.sleep(5)
+                    while busy.search(urllib.request.urlopen("http://localhost:8000/metrics").read().decode()):
+                        time.sleep(2)
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 10
+            failureThreshold: 90
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "3"
+              memory: 8Gi
+            limits:
+              nvidia.com/gpu: "1"
+              memory: 12Gi
+          volumeMounts:
+            - name: hf-cache
+              mountPath: /root/.cache/huggingface
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: hf-cache
+          hostPath:
+            path: /mnt/huggingface
+            type: DirectoryOrCreate
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm
+  labels:
+    app: vllm
+spec:
+  selector:
+    app: vllm
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000

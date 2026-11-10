@@ -1,0 +1,50 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: mininfra
+  region: us-west-2
+  version: "1.34"
+  tags:
+    karpenter.sh/discovery: mininfra
+
+availabilityZones: [us-west-2a, us-west-2b, us-west-2c]
+
+vpc:
+  nat:
+    gateway: Disable
+
+autoModeConfig:
+  enabled: false
+
+iam:
+  withOIDC: true
+  podIdentityAssociations:
+    - namespace: kube-system
+      serviceAccountName: karpenter
+      roleName: mininfra-karpenter
+      permissionPolicyARNs:
+        - arn:aws:iam::${AWS_ACCOUNT_ID}:policy/KarpenterControllerNodeLifecyclePolicy-mininfra
+        - arn:aws:iam::${AWS_ACCOUNT_ID}:policy/KarpenterControllerIAMIntegrationPolicy-mininfra
+        - arn:aws:iam::${AWS_ACCOUNT_ID}:policy/KarpenterControllerEKSIntegrationPolicy-mininfra
+        - arn:aws:iam::${AWS_ACCOUNT_ID}:policy/KarpenterControllerInterruptionPolicy-mininfra
+        - arn:aws:iam::${AWS_ACCOUNT_ID}:policy/KarpenterControllerResourceDiscoveryPolicy-mininfra
+        - arn:aws:iam::${AWS_ACCOUNT_ID}:policy/KarpenterControllerZonalShiftPolicy-mininfra
+
+iamIdentityMappings:
+  - arn: arn:aws:iam::${AWS_ACCOUNT_ID}:role/KarpenterNodeRole-mininfra
+    username: system:node:{{EC2PrivateDNSName}}
+    groups:
+      - system:bootstrappers
+      - system:nodes
+
+managedNodeGroups:
+  - name: system
+    instanceType: m5.large
+    amiFamily: AmazonLinux2023
+    minSize: 2
+    maxSize: 2
+    desiredCapacity: 2
+
+addons:
+  - name: eks-pod-identity-agent
