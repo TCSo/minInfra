@@ -473,7 +473,7 @@ aws cloudformation list-stacks --region us-west-2 --stack-status-filter CREATE_C
 
 The 100 GB disk adds cents. The next chapter starts from `eksctl create cluster` again.
 
-## What the numbers say
+## What to remember
 
 1. **Compute and memory are both ceilings, and either can come first.** The laptop ran out of compute at N=8 and cache at N=16. The A10G ran out of compute at N=96 and cache at N=128. The cache size is predictable from chapter 2's arithmetic; the compute ceiling you measure.
 2. **An idle card is the expensive mistake.** The same $1.21/hour card cost $6.35 per million tokens with one user and $0.17 with 64. Prices between providers differ by about 3 times; sharing the card changed the price per token 38 times.
